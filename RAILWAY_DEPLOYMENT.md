@@ -66,10 +66,12 @@ ENCRYPTION_KEY=your-32-character-encryption-key-here
 ### Step 4: Database Setup
 1. Railway dashboard এ "Add Service" ক্লিক করুন
 2. "Database" select করুন
-3. "PostgreSQL" বা "MySQL" select করুন
+3. "PostgreSQL" select করুন (recommended)
 4. Database service add করুন
 5. Database URL copy করুন
 6. Environment variables এ `DATABASE_URL` update করুন
+
+**Note**: SQLite production environment এ recommended নয়। PostgreSQL ব্যবহার করুন।
 
 ### Step 5: Deploy
 1. Railway automatically আপনার code deploy করবে
@@ -117,20 +119,26 @@ ENCRYPTION_KEY=your-32-character-encryption-key-here
 
 ### Common Issues:
 
-1. **Deployment Failed**
+1. **Pandas Installation Error**
+   - **Solution**: Pandas dependency removed from requirements.txt
+   - **Reason**: Python 3.13 এর সাথে pandas 2.1.1 compatible নয়
+   - **Status**: ✅ Fixed - pandas not used in the application
+
+2. **Deployment Failed**
    - Logs check করুন
    - Environment variables verify করুন
    - Requirements.txt check করুন
 
-2. **Database Connection Error**
+3. **Database Connection Error**
    - DATABASE_URL check করুন
    - Database service running আছে কিনা check করুন
+   - PostgreSQL URL format: `postgresql://user:pass@host:port/db`
 
-3. **API Keys Not Working**
+4. **API Keys Not Working**
    - Environment variables এ correct keys আছে কিনা check করুন
    - API keys valid আছে কিনা verify করুন
 
-4. **Trading Not Working**
+5. **Trading Not Working**
    - OANDA credentials check করুন
    - AUTO_TRADING_ENABLED=true আছে কিনা check করুন
 
