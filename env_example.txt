@@ -1,0 +1,23 @@
+# Discord Configuration
+DISCORD_TOKEN=your_discord_bot_token_here
+DISCORD_CHANNEL_ID=your_discord_channel_id_here
+
+# OANDA Configuration
+OANDA_API_KEY=your_oanda_api_key_here
+OANDA_ACCOUNT_ID=your_oanda_account_id_here
+OANDA_ENVIRONMENT=practice
+
+# Database Configuration
+DATABASE_URL=sqlite:///trading_bot.db
+
+# Trading Configuration
+DEFAULT_LOT_SIZE=0.01
+MAX_RISK_PERCENT=2.0
+STOP_LOSS_PIPS=50
+TAKE_PROFIT_PIPS=100
+
+# Web App Configuration
+SECRET_KEY=your-secret-key-here
+DEBUG=False
+
+# Strategy Configuration - Only Discord signals are executed

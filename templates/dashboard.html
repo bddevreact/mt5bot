@@ -1,0 +1,1837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Bot Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .card {
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            border: 1px solid rgba(0, 0, 0, 0.125);
+        }
+        .profit { color: #28a745; }
+        .loss { color: #dc3545; }
+        .status-open { color: #007bff; }
+        .status-closed { color: #6c757d; }
+        .action-buttons {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .refresh-btn, .sl-tp-btn, .close-all-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .metric-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .metric-card .card-body {
+            padding: 1.5rem;
+        }
+        .table-responsive {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-dark bg-dark">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">
+                <i class="fas fa-robot"></i> Trading Bot Dashboard
+            </span>
+            <span class="navbar-text">
+                <i class="fas fa-circle text-success"></i> Live
+            </span>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <!-- Account Overview -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card metric-card">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">Balance</h5>
+                        <h3 id="balance">$0.00</h3>
+                        <small id="currency">USD</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card metric-card">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">Unrealized P&L</h5>
+                        <h3 id="unrealized-pnl">$0.00</h3>
+                        <small>Open Positions</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card metric-card">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">Realized P&L</h5>
+                        <h3 id="realized-pnl">$0.00</h3>
+                        <small>Closed Trades</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card metric-card">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">Margin Used</h5>
+                        <h3 id="margin-used">$0.00</h3>
+                        <small id="margin-available">Available: $0.00</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trading Statistics -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5><i class="fas fa-chart-line"></i> Trading Statistics</h5>
+                        <div class="auto-trading-status">
+                            <span id="auto-trading-status" class="badge bg-secondary">Loading...</span>
+                            <button id="toggle-auto-trading" class="btn btn-sm btn-outline-primary ms-2" onclick="toggleAutoTrading()">
+                                <i class="fas fa-power-off"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-6">
+                                <h6>Open Trades</h6>
+                                <h4 id="open-trades-count">0</h4>
+                            </div>
+                            <div class="col-6">
+                                <h6>Total Trades</h6>
+                                <h4 id="total-trades-count">0</h4>
+                            </div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-6">
+                                <h6>Win Rate</h6>
+                                <h4 id="win-rate">0%</h4>
+                            </div>
+                            <div class="col-6">
+                                <h6>Active Strategies</h6>
+                                <h4 id="active-strategies">0</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-cogs"></i> Strategy Performance</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="strategy-performance">
+                            <p class="text-muted">Loading strategies...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Trades and Positions -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-exchange-alt"></i> Active Trades</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Symbol</th>
+                                        <th>Action</th>
+                                        <th>Entry</th>
+                                        <th>Current</th>
+                                        <th>P&L</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="active-trades-table">
+                                    <tr>
+                                        <td colspan="6" class="text-center text-muted">No active trades</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-layer-group"></i> Positions</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Symbol</th>
+                                        <th>Long</th>
+                                        <th>Short</th>
+                                        <th>P&L</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="positions-table">
+                                    <tr>
+                                        <td colspan="4" class="text-center text-muted">No positions</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Trades and Signals -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-history"></i> Recent Trades</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Symbol</th>
+                                        <th>Action</th>
+                                        <th>Entry</th>
+                                        <th>Exit</th>
+                                        <th>P&L</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recent-trades-table">
+                                    <tr>
+                                        <td colspan="6" class="text-center text-muted">No recent trades</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-signal"></i> Recent Signals</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Symbol</th>
+                                        <th>Action</th>
+                                        <th>Strategy</th>
+                                        <th>Confidence</th>
+                                        <th>Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="signals-table">
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted">No signals</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test Signal Form -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-flask"></i> Test Signal Generator</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="test-signal-form">
+                            <div class="row">
+                                <div class="col-md-2">
+                                    <label class="form-label">Symbol</label>
+                                    <select class="form-select" name="symbol" required>
+                                        <option value="EUR_USD">EUR/USD</option>
+                                        <option value="GBP_USD">GBP/USD</option>
+                                        <option value="USD_JPY">USD/JPY</option>
+                                        <option value="AUD_USD">AUD/USD</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Action</label>
+                                    <select class="form-select" name="action" required>
+                                        <option value="BUY">BUY</option>
+                                        <option value="SELL">SELL</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Entry Price</label>
+                                    <input type="number" class="form-control" name="entry_price" step="0.0001" required>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Stop Loss</label>
+                                    <input type="number" class="form-control" name="stop_loss" step="0.0001">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Take Profit</label>
+                                    <input type="number" class="form-control" name="take_profit" step="0.0001">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">&nbsp;</label>
+                                    <button type="submit" class="btn btn-primary d-block w-100">
+                                        <i class="fas fa-plus"></i> Add Signal
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Token Management -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5><i class="fas fa-key"></i> Discord User Token Setup</h5>
+                        <div>
+                            <button class="btn btn-sm btn-outline-primary me-2" onclick="refreshUserTokens()">
+                                <i class="fas fa-sync"></i> Refresh
+                            </button>
+                            <button class="btn btn-sm btn-success" onclick="showTokenForm()">
+                                <i class="fas fa-plus"></i> Add Token
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- Token Input Form -->
+                        <div id="token-form-container" style="display: none;">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6><i class="fas fa-key"></i> Discord Token Setup</h6>
+                                    <form id="token-form">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label class="form-label">Discord User Token</label>
+                                                    <input type="password" class="form-control" id="discord-token" 
+                                                           placeholder="Enter your Discord user token" required>
+                                                    <div class="form-text">
+                                                        <small>
+                                                            <i class="fas fa-info-circle"></i> 
+                                                            Get your token from Discord web browser (F12 > Network > Authorization header)
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label class="form-label">Username (Optional)</label>
+                                                    <input type="text" class="form-control" id="username" 
+                                                           placeholder="Your Discord username">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label class="form-label">Channel ID</label>
+                                                    <input type="text" class="form-control" id="channel-id" 
+                                                           placeholder="Discord channel ID" required>
+                                                    <div class="form-text">
+                                                        <small>Right-click on Discord channel > Copy Channel ID</small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label class="form-label">Channel Name (Optional)</label>
+                                                    <input type="text" class="form-control" id="channel-name" 
+                                                           placeholder="Channel name for display">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="d-flex justify-content-between">
+                                            <button type="button" class="btn btn-secondary" onclick="hideTokenForm()">
+                                                <i class="fas fa-times"></i> Cancel
+                                            </button>
+                                            <button type="submit" class="btn btn-primary">
+                                                <i class="fas fa-save"></i> Save Token
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Existing Tokens Display -->
+                        <div id="user-tokens-container">
+                            <div class="text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p class="mt-2">Loading user tokens...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TradingView Configuration -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5><i class="fas fa-chart-line"></i> TradingView Configuration</h5>
+                        <div>
+                            <button class="btn btn-sm btn-outline-primary me-2" onclick="refreshTradingViewConfigs()">
+                                <i class="fas fa-sync"></i> Refresh
+                            </button>
+                            <button class="btn btn-sm btn-success" onclick="showTradingViewForm()">
+                                <i class="fas fa-plus"></i> Add Configuration
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="tradingview-config-container">
+                            <div id="existing-tradingview-info" style="display: none;">
+                                <div class="alert alert-info">
+                                    <h6><i class="fas fa-info-circle"></i> Detected TradingView Configuration</h6>
+                                    <p id="detected-tradingview-info"></p>
+                                    <button class="btn btn-sm btn-primary" onclick="editTradingViewConfig()">Edit Configuration</button>
+                                    <button class="btn btn-sm btn-secondary" onclick="hideTradingViewForm()">Cancel</button>
+                                </div>
+                            </div>
+                            
+                            <div id="tradingview-form" style="display: none;">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h6><i class="fas fa-chart-line"></i> TradingView Setup</h6>
+                                        <form id="tradingview-form-element">
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <div class="mb-3">
+                                                        <label class="form-label">TradingView API Key</label>
+                                                        <input type="password" class="form-control" id="tradingview-api-key" 
+                                                               placeholder="Enter your TradingView API key" required>
+                                                        <div class="form-text">
+                                                            <small>Get your API key from TradingView webhook settings</small>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Username (Optional)</label>
+                                                        <input type="text" class="form-control" id="tradingview-username" 
+                                                               placeholder="Your username">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="row">
+                                                <div class="col-12">
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Webhook URL (Optional)</label>
+                                                        <input type="url" class="form-control" id="tradingview-webhook-url" 
+                                                               placeholder="Enter TradingView webhook URL">
+                                                        <div class="form-text">
+                                                            <small>Optional: Custom webhook URL for TradingView alerts</small>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="text-end">
+                                                <button type="submit" class="btn btn-primary">
+                                                    <i class="fas fa-save"></i> Save Configuration
+                                                </button>
+                                                <button type="button" class="btn btn-secondary" onclick="hideTradingViewForm()">Cancel</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div id="no-tradingview-message">
+                                <p class="text-muted">No TradingView configuration found for this device.</p>
+                                <button class="btn btn-primary" onclick="showTradingViewForm()">
+                                    <i class="fas fa-plus"></i> Add TradingView Configuration
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div id="tradingview-configs-list" style="display: none;">
+                            <h6>Saved TradingView Configurations:</h6>
+                            <div id="tradingview-configs-list-content"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- OANDA Configuration -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5><i class="fas fa-university"></i> OANDA Account Configuration</h5>
+                        <div>
+                            <button class="btn btn-sm btn-outline-primary me-2" onclick="refreshOANDAConfigs()">
+                                <i class="fas fa-sync"></i> Refresh
+                            </button>
+                            <button class="btn btn-sm btn-success" onclick="showOANDAForm()">
+                                <i class="fas fa-plus"></i> Add Account
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="oanda-config-container">
+                            <div id="existing-oanda-info" style="display: none;">
+                                <div class="alert alert-info">
+                                    <h6><i class="fas fa-info-circle"></i> Detected OANDA Configuration</h6>
+                                    <p id="detected-oanda-info"></p>
+                                    <button class="btn btn-sm btn-primary" onclick="editOANDAConfig()">Edit Configuration</button>
+                                    <button class="btn btn-sm btn-secondary" onclick="hideOANDAForm()">Cancel</button>
+                                </div>
+                            </div>
+                            
+                            <div id="oanda-form" style="display: none;">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h6><i class="fas fa-university"></i> OANDA Account Setup</h6>
+                                        <form id="oanda-form-element">
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <div class="mb-3">
+                                                        <label class="form-label">OANDA Account ID</label>
+                                                        <input type="text" class="form-control" id="oanda-account-id" 
+                                                               placeholder="Enter OANDA account ID" required>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Account Name (Optional)</label>
+                                                        <input type="text" class="form-control" id="oanda-account-name" 
+                                                               placeholder="Enter account name for display">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <div class="mb-3">
+                                                        <label class="form-label">OANDA API Key</label>
+                                                        <input type="password" class="form-control" id="oanda-api-key" 
+                                                               placeholder="Enter your OANDA API key" required>
+                                                        <div class="form-text">
+                                                            <small>Get your API key from OANDA account settings</small>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Environment</label>
+                                                        <select class="form-control" id="oanda-environment">
+                                                            <option value="practice">Practice (Demo)</option>
+                                                            <option value="live">Live (Real Money)</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Username (Optional)</label>
+                                                        <input type="text" class="form-control" id="oanda-username" 
+                                                               placeholder="Your username">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="text-end">
+                                                <button type="submit" class="btn btn-primary">
+                                                    <i class="fas fa-save"></i> Save Configuration
+                                                </button>
+                                                <button type="button" class="btn btn-secondary" onclick="hideOANDAForm()">Cancel</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div id="no-oanda-message">
+                                <p class="text-muted">No OANDA configuration found for this device.</p>
+                                <button class="btn btn-primary" onclick="showOANDAForm()">
+                                    <i class="fas fa-plus"></i> Add OANDA Configuration
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div id="oanda-configs-list" style="display: none;">
+                            <h6>Saved OANDA Accounts:</h6>
+                            <div id="oanda-configs-list-content"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Account Selection -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-exchange-alt"></i> Active Account Selection</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="active-oanda-account">Select Active OANDA Account:</label>
+                                    <select class="form-control" id="active-oanda-account">
+                                        <option value="">Select an account...</option>
+                                    </select>
+                                    <small class="form-text text-muted">
+                                        Choose which OANDA account to use for trading
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="active-signal-source">Select Signal Source:</label>
+                                    <select class="form-control" id="active-signal-source">
+                                        <option value="discord">Discord Signals</option>
+                                        <option value="tradingview">TradingView Signals</option>
+                                        <option value="both">Both Discord & TradingView</option>
+                                    </select>
+                                    <small class="form-text text-muted">
+                                        Choose which signal source to use for trading
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-end mt-3">
+                            <button class="btn btn-success" onclick="updateActiveConfigurations()">
+                                <i class="fas fa-sync"></i> Update Active Configuration
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="action-buttons">
+        <button class="btn btn-primary refresh-btn" onclick="refreshData()" title="Refresh Data">
+            <i class="fas fa-sync-alt"></i>
+        </button>
+        <button class="btn btn-warning sl-tp-btn" onclick="addStopLossTakeProfit()" title="Add Stop Loss & Take Profit">
+            <i class="fas fa-shield-alt"></i>
+        </button>
+        <button class="btn btn-danger close-all-btn" onclick="closeAllTrades()" title="Close All Trades">
+            <i class="fas fa-times-circle"></i>
+        </button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Global variables
+        let refreshInterval;
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDashboardData();
+            setupEventListeners();
+            
+            // Auto-refresh every 30 seconds
+            refreshInterval = setInterval(loadDashboardData, 30000);
+        });
+
+        function setupEventListeners() {
+            // Test signal form
+            document.getElementById('test-signal-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                addTestSignal();
+            });
+            
+            // Token form
+            document.getElementById('token-form').addEventListener('submit', handleTokenFormSubmit);
+            
+            // TradingView form
+            document.getElementById('tradingview-form-element').addEventListener('submit', handleTradingViewFormSubmit);
+            
+            // OANDA form
+            document.getElementById('oanda-form-element').addEventListener('submit', handleOANDAFormSubmit);
+        }
+
+        async function loadDashboardData() {
+            try {
+                await Promise.all([
+                    loadAccountData(),
+                    loadTradesData(),
+                    loadPositionsData(),
+                    loadSignalsData(),
+                    loadStrategiesData(),
+                    loadTradingSettings(),
+                    loadUserTokens(),
+                    loadTradingViewConfigs(),
+                    loadOANDAConfigs(),
+                    loadOANDAAccounts()
+                ]);
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+            }
+        }
+
+        async function loadAccountData() {
+            try {
+                const response = await fetch('/api/account');
+                const account = await response.json();
+                
+                document.getElementById('balance').textContent = `$${account.balance?.toFixed(2) || '0.00'}`;
+                document.getElementById('currency').textContent = account.currency || 'USD';
+                document.getElementById('unrealized-pnl').textContent = `$${account.unrealized_pnl?.toFixed(2) || '0.00'}`;
+                document.getElementById('realized-pnl').textContent = `$${account.realized_pnl?.toFixed(2) || '0.00'}`;
+                document.getElementById('margin-used').textContent = `$${account.margin_used?.toFixed(2) || '0.00'}`;
+                document.getElementById('margin-available').textContent = `Available: $${account.margin_available?.toFixed(2) || '0.00'}`;
+                
+                // Color code P&L
+                const unrealizedElement = document.getElementById('unrealized-pnl');
+                const realizedElement = document.getElementById('realized-pnl');
+                
+                if (account.unrealized_pnl > 0) {
+                    unrealizedElement.className = 'profit';
+                } else if (account.unrealized_pnl < 0) {
+                    unrealizedElement.className = 'loss';
+                }
+                
+                if (account.realized_pnl > 0) {
+                    realizedElement.className = 'profit';
+                } else if (account.realized_pnl < 0) {
+                    realizedElement.className = 'loss';
+                }
+            } catch (error) {
+                console.error('Error loading account data:', error);
+            }
+        }
+
+        async function loadTradesData() {
+            try {
+                const [openResponse, allResponse] = await Promise.all([
+                    fetch('/api/trades?status=open'),
+                    fetch('/api/trades?limit=10')
+                ]);
+                
+                const openTrades = await openResponse.json();
+                const allTrades = await allResponse.json();
+                
+                // Update statistics
+                document.getElementById('open-trades-count').textContent = openTrades.length;
+                document.getElementById('total-trades-count').textContent = allTrades.length;
+                
+                // Calculate win rate
+                const closedTrades = allTrades.filter(trade => trade.status === 'CLOSED');
+                const winningTrades = closedTrades.filter(trade => trade.pnl > 0);
+                const winRate = closedTrades.length > 0 ? (winningTrades.length / closedTrades.length * 100).toFixed(1) : 0;
+                document.getElementById('win-rate').textContent = `${winRate}%`;
+                
+                // Update active trades table
+                updateActiveTradesTable(openTrades);
+                
+                // Update recent trades table
+                updateRecentTradesTable(allTrades.slice(0, 10));
+            } catch (error) {
+                console.error('Error loading trades data:', error);
+            }
+        }
+
+        function updateActiveTradesTable(trades) {
+            const tbody = document.getElementById('active-trades-table');
+            
+            if (trades.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No active trades</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = trades.map(trade => `
+                <tr>
+                    <td>${trade.symbol}</td>
+                    <td><span class="badge ${trade.action === 'BUY' ? 'bg-success' : 'bg-danger'}">${trade.action}</span></td>
+                    <td>${trade.entry_price?.toFixed(4) || 'N/A'}</td>
+                    <td>${trade.current_price?.toFixed(4) || 'N/A'}</td>
+                    <td class="${trade.pnl >= 0 ? 'profit' : 'loss'}">$${trade.pnl?.toFixed(2) || '0.00'}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-danger" onclick="closeTrade('${trade.oanda_trade_id}')">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function updateRecentTradesTable(trades) {
+            const tbody = document.getElementById('recent-trades-table');
+            
+            if (trades.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No recent trades</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = trades.map(trade => `
+                <tr>
+                    <td>${trade.symbol}</td>
+                    <td><span class="badge ${trade.action === 'BUY' ? 'bg-success' : 'bg-danger'}">${trade.action}</span></td>
+                    <td>${trade.entry_price?.toFixed(4) || 'N/A'}</td>
+                    <td>${trade.close_price?.toFixed(4) || 'N/A'}</td>
+                    <td class="${trade.pnl >= 0 ? 'profit' : 'loss'}">$${trade.pnl?.toFixed(2) || '0.00'}</td>
+                    <td><span class="badge ${trade.status === 'OPEN' ? 'bg-primary' : 'bg-secondary'}">${trade.status}</span></td>
+                </tr>
+            `).join('');
+        }
+
+        async function loadPositionsData() {
+            try {
+                const response = await fetch('/api/positions');
+                const positions = await response.json();
+                
+                const tbody = document.getElementById('positions-table');
+                
+                if (positions.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No positions</td></tr>';
+                    return;
+                }
+                
+                tbody.innerHTML = positions.map(position => `
+                    <tr>
+                        <td>${position.symbol}</td>
+                        <td>${position.long_units}</td>
+                        <td>${position.short_units}</td>
+                        <td class="${position.unrealized_pnl >= 0 ? 'profit' : 'loss'}">$${position.unrealized_pnl?.toFixed(2) || '0.00'}</td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading positions data:', error);
+            }
+        }
+
+        async function loadSignalsData() {
+            try {
+                const response = await fetch('/api/signals?limit=10');
+                const signals = await response.json();
+                
+                const tbody = document.getElementById('signals-table');
+                
+                if (signals.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No signals</td></tr>';
+                    return;
+                }
+                
+                tbody.innerHTML = signals.map(signal => `
+                    <tr>
+                        <td>${signal.symbol}</td>
+                        <td><span class="badge ${signal.action === 'BUY' ? 'bg-success' : 'bg-danger'}">${signal.action}</span></td>
+                        <td>${signal.strategy || 'N/A'}</td>
+                        <td>${(signal.confidence * 100)?.toFixed(0) || 0}%</td>
+                        <td>${new Date(signal.timestamp).toLocaleTimeString()}</td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading signals data:', error);
+            }
+        }
+
+        async function loadStrategiesData() {
+            try {
+                const response = await fetch('/api/strategies');
+                const strategies = await response.json();
+                
+                document.getElementById('active-strategies').textContent = strategies.filter(s => s.enabled).length;
+                
+                const container = document.getElementById('strategy-performance');
+                container.innerHTML = strategies.map(strategy => `
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span>${strategy.name}</span>
+                        <div>
+                            <span class="badge ${strategy.enabled ? 'bg-success' : 'bg-secondary'}">${strategy.enabled ? 'Active' : 'Inactive'}</span>
+                            <small class="text-muted ms-2">${strategy.success_rate?.toFixed(1) || 0}% (${strategy.total_trades || 0})</small>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading strategies data:', error);
+            }
+        }
+
+        async function closeTrade(tradeId) {
+            if (!confirm('Are you sure you want to close this trade?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/close_trade/${tradeId}`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    alert('Trade closed successfully');
+                    loadDashboardData();
+                } else {
+                    const error = await response.json();
+                    alert(`Error: ${error.error}`);
+                }
+            } catch (error) {
+                console.error('Error closing trade:', error);
+                alert('Error closing trade');
+            }
+        }
+
+        async function addTestSignal() {
+            const form = document.getElementById('test-signal-form');
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData);
+            
+            try {
+                const response = await fetch('/api/test_signal', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                if (response.ok) {
+                    alert('Test signal added successfully');
+                    form.reset();
+                    loadDashboardData();
+                } else {
+                    const error = await response.json();
+                    alert(`Error: ${error.error}`);
+                }
+            } catch (error) {
+                console.error('Error adding test signal:', error);
+                alert('Error adding test signal');
+            }
+        }
+
+        async function refreshData() {
+            try {
+                const response = await fetch('/api/refresh_data', {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    loadDashboardData();
+                } else {
+                    const error = await response.json();
+                    alert(`Error: ${error.error}`);
+                }
+            } catch (error) {
+                console.error('Error refreshing data:', error);
+                alert('Error refreshing data');
+            }
+        }
+
+        async function addStopLossTakeProfit() {
+            if (!confirm('Add stop loss and take profit to all open trades?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/add_sl_tp', {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    alert('Stop loss and take profit added to all trades');
+                    loadDashboardData();
+                } else {
+                    const error = await response.json();
+                    alert(`Error: ${error.error}`);
+                }
+            } catch (error) {
+                console.error('Error adding stop loss/take profit:', error);
+                alert('Error adding stop loss/take profit');
+            }
+        }
+
+        async function closeAllTrades() {
+            if (!confirm('Are you sure you want to close ALL open trades? This action cannot be undone.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/close_all_trades', {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    alert(`Closed ${result.closed} trades, ${result.failed} failed`);
+                    loadDashboardData();
+                } else {
+                    const error = await response.json();
+                    alert(`Error: ${error.error}`);
+                }
+            } catch (error) {
+                console.error('Error closing all trades:', error);
+                alert('Error closing all trades');
+            }
+        }
+
+        async function loadTradingSettings() {
+            try {
+                const response = await fetch('/api/trading_settings');
+                const settings = await response.json();
+                
+                const statusElement = document.getElementById('auto-trading-status');
+                const toggleButton = document.getElementById('toggle-auto-trading');
+                
+                if (settings.auto_trading_enabled) {
+                    statusElement.textContent = 'Auto Trading ON';
+                    statusElement.className = 'badge bg-success';
+                    toggleButton.innerHTML = '<i class="fas fa-power-off"></i>';
+                    toggleButton.title = 'Turn OFF Auto Trading';
+                } else {
+                    statusElement.textContent = 'Auto Trading OFF';
+                    statusElement.className = 'badge bg-danger';
+                    toggleButton.innerHTML = '<i class="fas fa-play"></i>';
+                    toggleButton.title = 'Turn ON Auto Trading';
+                }
+            } catch (error) {
+                console.error('Error loading trading settings:', error);
+            }
+        }
+
+        async function toggleAutoTrading() {
+            try {
+                const response = await fetch('/api/toggle_auto_trading', {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    alert(result.message);
+                    loadTradingSettings();
+                } else {
+                    const error = await response.json();
+                    alert(`Error: ${error.error}`);
+                }
+            } catch (error) {
+                console.error('Error toggling auto trading:', error);
+                alert('Error toggling auto trading');
+            }
+        }
+
+        // User Token Management Functions
+        let deviceFingerprint = null;
+
+        // Generate device fingerprint
+        function generateDeviceFingerprint() {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.textBaseline = 'top';
+            ctx.font = '14px Arial';
+            ctx.fillText('Device fingerprint', 2, 2);
+            
+            const fingerprint = [
+                navigator.userAgent,
+                navigator.language,
+                screen.width + 'x' + screen.height,
+                new Date().getTimezoneOffset(),
+                canvas.toDataURL()
+            ].join('|');
+            
+            // Simple hash function
+            let hash = 0;
+            for (let i = 0; i < fingerprint.length; i++) {
+                const char = fingerprint.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash; // Convert to 32-bit integer
+            }
+            return Math.abs(hash).toString(36);
+        }
+
+        // Check for existing token on page load
+        async function checkExistingToken() {
+            try {
+                deviceFingerprint = generateDeviceFingerprint();
+                const response = await fetch(`/api/user_tokens/by_device?device_fingerprint=${deviceFingerprint}`);
+                
+                if (response.ok) {
+                    const tokenInfo = await response.json();
+                    if (tokenInfo.user_id) {
+                        // Show existing token info
+                        showExistingTokenInfo(tokenInfo);
+                        return true;
+                    }
+                }
+                return false;
+            } catch (error) {
+                console.error('Error checking existing token:', error);
+                return false;
+            }
+        }
+
+        // Show existing token information
+        function showExistingTokenInfo(tokenInfo) {
+            const container = document.getElementById('user-tokens-container');
+            const lastUsed = tokenInfo.last_used ? 
+                new Date(tokenInfo.last_used).toLocaleString() : 
+                'Never';
+            
+            container.innerHTML = `
+                <div class="alert alert-success">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="alert-heading mb-1">
+                                <i class="fas fa-check-circle"></i> Token Found for This Device
+                            </h6>
+                            <p class="mb-0">
+                                <strong>User:</strong> ${tokenInfo.username || 'Unknown'} (${tokenInfo.user_id})<br>
+                                <strong>Channel:</strong> ${tokenInfo.channel_name || 'Unknown'} (${tokenInfo.channel_id})<br>
+                                <strong>Last Used:</strong> ${lastUsed}
+                            </p>
+                        </div>
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-sm btn-outline-primary" onclick="editToken('${tokenInfo.user_id}')">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deactivateToken('${tokenInfo.user_id}')">
+                                <i class="fas fa-power-off"></i> Deactivate
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Show token form
+        function showTokenForm() {
+            document.getElementById('token-form-container').style.display = 'block';
+            document.getElementById('discord-token').focus();
+        }
+
+        // Hide token form
+        function hideTokenForm() {
+            document.getElementById('token-form-container').style.display = 'none';
+            document.getElementById('token-form').reset();
+        }
+
+        // Edit token
+        function editToken(userId) {
+            showTokenForm();
+            // You can pre-fill the form with existing data if needed
+            document.getElementById('token-form').setAttribute('data-edit-user-id', userId);
+        }
+
+        async function loadUserTokens() {
+            try {
+                // First check if there's an existing token for this device
+                const hasExistingToken = await checkExistingToken();
+                if (hasExistingToken) {
+                    return;
+                }
+
+                const response = await fetch('/api/user_tokens');
+                const tokens = await response.json();
+                
+                const container = document.getElementById('user-tokens-container');
+                
+                if (tokens.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center text-muted">
+                            <i class="fas fa-key fa-3x mb-3"></i>
+                            <h5>No User Tokens Found</h5>
+                            <p>Click "Add Token" to set up your Discord user token.</p>
+                            <button class="btn btn-primary" onclick="showTokenForm()">
+                                <i class="fas fa-plus"></i> Add Your First Token
+                            </button>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                let html = '<div class="row">';
+                tokens.forEach((token, index) => {
+                    const statusBadge = token.is_active ? 
+                        '<span class="badge bg-success">Active</span>' : 
+                        '<span class="badge bg-secondary">Inactive</span>';
+                    
+                    const lastUsed = token.last_used ? 
+                        new Date(token.last_used).toLocaleString() : 
+                        'Never';
+                    
+                    const isCurrentDevice = token.device_fingerprint === deviceFingerprint;
+                    const deviceBadge = isCurrentDevice ? 
+                        '<span class="badge bg-info">This Device</span>' : 
+                        '<span class="badge bg-light text-dark">Other Device</span>';
+                    
+                    html += `
+                        <div class="col-md-6 mb-3">
+                            <div class="card ${isCurrentDevice ? 'border-primary' : ''}">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <h6 class="card-title mb-0">
+                                            <i class="fas fa-user"></i> ${token.username || 'Unknown User'}
+                                        </h6>
+                                        <div>
+                                            ${statusBadge} ${deviceBadge}
+                                        </div>
+                                    </div>
+                                    <p class="card-text">
+                                        <small class="text-muted">
+                                            <strong>User ID:</strong> ${token.user_id}<br>
+                                            <strong>Token:</strong> ${token.token}<br>
+                                            <strong>Channel:</strong> ${token.channel_name || 'Unknown'} (${token.channel_id})<br>
+                                            <strong>Last Used:</strong> ${lastUsed}<br>
+                                            <strong>Created:</strong> ${new Date(token.created_at).toLocaleString()}
+                                        </small>
+                                    </p>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <button class="btn btn-outline-primary" onclick="editToken('${token.user_id}')" title="Edit Token">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-outline-warning" onclick="deactivateToken('${token.user_id}')" title="Deactivate Token">
+                                            <i class="fas fa-power-off"></i>
+                                        </button>
+                                        <button class="btn btn-outline-danger" onclick="deleteToken('${token.user_id}')" title="Delete Token">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                
+                container.innerHTML = html;
+                
+            } catch (error) {
+                console.error('Error loading user tokens:', error);
+                document.getElementById('user-tokens-container').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i> Error loading user tokens: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        async function refreshUserTokens() {
+            await loadUserTokens();
+        }
+
+        // Handle token form submission
+        async function handleTokenFormSubmit(event) {
+            event.preventDefault();
+            
+            const form = event.target;
+            const token = document.getElementById('discord-token').value.trim();
+            const username = document.getElementById('username').value.trim();
+            const channelId = document.getElementById('channel-id').value.trim();
+            const channelName = document.getElementById('channel-name').value.trim();
+            const editUserId = form.getAttribute('data-edit-user-id');
+            
+            if (!token || !channelId) {
+                alert('Please fill in the required fields (Token and Channel ID)');
+                return;
+            }
+            
+            // Extract user ID from token
+            let userId;
+            if (token.includes('.')) {
+                userId = token.split('.')[0];
+            } else {
+                alert('Invalid token format. Please check your Discord token.');
+                return;
+            }
+            
+            try {
+                const requestData = {
+                    user_id: userId,
+                    username: username || `User_${userId}`,
+                    token: token,
+                    channel_id: channelId,
+                    channel_name: channelName || `Channel_${channelId}`,
+                    device_fingerprint: deviceFingerprint
+                };
+                
+                let response;
+                if (editUserId) {
+                    // Update existing token
+                    response = await fetch(`/api/user_tokens/${editUserId}/update`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            username: requestData.username,
+                            channel_id: requestData.channel_id,
+                            channel_name: requestData.channel_name
+                        })
+                    });
+                } else {
+                    // Save new token
+                    response = await fetch('/api/user_tokens', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(requestData)
+                    });
+                }
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    alert(editUserId ? 'Token updated successfully!' : 'Token saved successfully!');
+                    hideTokenForm();
+                    await loadUserTokens();
+                } else {
+                    const error = await response.json();
+                    alert(`Error: ${error.error}`);
+                }
+            } catch (error) {
+                console.error('Error saving token:', error);
+                alert('Error saving token. Please try again.');
+            }
+        }
+
+        async function deactivateToken(userId) {
+            if (!confirm('Are you sure you want to deactivate this token?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/user_tokens/${userId}/deactivate`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    alert('Token deactivated successfully');
+                    loadUserTokens();
+                } else {
+                    const error = await response.json();
+                    alert(`Error: ${error.error}`);
+                }
+            } catch (error) {
+                console.error('Error deactivating token:', error);
+                alert('Error deactivating token');
+            }
+        }
+
+        async function deleteToken(userId) {
+            if (!confirm('Are you sure you want to permanently delete this token? This action cannot be undone.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/user_tokens/${userId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    alert('Token deleted successfully');
+                    loadUserTokens();
+                } else {
+                    const error = await response.json();
+                    alert(`Error: ${error.error}`);
+                }
+            } catch (error) {
+                console.error('Error deleting token:', error);
+                alert('Error deleting token');
+            }
+        }
+
+        // TradingView Configuration Functions
+        async function loadTradingViewConfigs() {
+            try {
+                const deviceFingerprint = generateDeviceFingerprint();
+                const response = await fetch(`/api/tradingview_configs/by_device?device_fingerprint=${deviceFingerprint}`);
+                
+                if (response.ok) {
+                    const config = await response.json();
+                    showExistingTradingViewInfo(config);
+                } else {
+                    showNoTradingViewMessage();
+                }
+            } catch (error) {
+                console.error('Error loading TradingView configs:', error);
+                showNoTradingViewMessage();
+            }
+        }
+
+        function showExistingTradingViewInfo(configInfo) {
+            const container = document.getElementById('tradingview-config-container');
+            const lastUsed = configInfo.last_used ? 
+                new Date(configInfo.last_used).toLocaleString() : 
+                'Never';
+            
+            container.innerHTML = `
+                <div class="alert alert-success">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="alert-heading mb-1">
+                                <i class="fas fa-check-circle"></i> TradingView Configuration Found
+                            </h6>
+                            <p class="mb-0">
+                                <strong>User:</strong> ${configInfo.username || 'Unknown'} (${configInfo.user_id})<br>
+                                <strong>API Key:</strong> ${configInfo.api_key}<br>
+                                <strong>Webhook URL:</strong> ${configInfo.webhook_url || 'Not set'}<br>
+                                <strong>Last Used:</strong> ${lastUsed}
+                            </p>
+                        </div>
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-sm btn-outline-primary" onclick="editTradingViewConfig('${configInfo.user_id}')">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deactivateTradingViewConfig('${configInfo.user_id}')">
+                                <i class="fas fa-power-off"></i> Deactivate
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function showNoTradingViewMessage() {
+            document.getElementById('tradingview-config-container').innerHTML = `
+                <div id="no-tradingview-message">
+                    <p class="text-muted">No TradingView configuration found for this device.</p>
+                    <button class="btn btn-primary" onclick="showTradingViewForm()">
+                        <i class="fas fa-plus"></i> Add TradingView Configuration
+                    </button>
+                </div>
+            `;
+        }
+
+        function showTradingViewForm() {
+            // Check if form exists, if not recreate it
+            let formElement = document.getElementById('tradingview-form');
+            if (!formElement) {
+                // Recreate the form in the container
+                const container = document.getElementById('tradingview-config-container');
+                container.innerHTML = `
+                    <div id="tradingview-form" style="display: block;">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6><i class="fas fa-chart-line"></i> TradingView Setup</h6>
+                                <form id="tradingview-form-element">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">TradingView API Key</label>
+                                                <input type="password" class="form-control" id="tradingview-api-key" 
+                                                       placeholder="Enter your TradingView API key" required>
+                                                <div class="form-text">
+                                                    <small>Get your API key from TradingView webhook settings</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">Username (Optional)</label>
+                                                <input type="text" class="form-control" id="tradingview-username" 
+                                                       placeholder="Your username">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <div class="mb-3">
+                                                <label class="form-label">Webhook URL (Optional)</label>
+                                                <input type="url" class="form-control" id="tradingview-webhook-url" 
+                                                       placeholder="Enter TradingView webhook URL">
+                                                <div class="form-text">
+                                                    <small>Optional: Custom webhook URL for TradingView alerts</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="text-end">
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-save"></i> Save Configuration
+                                        </button>
+                                        <button type="button" class="btn btn-secondary" onclick="hideTradingViewForm()">Cancel</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // Re-attach event listener
+                document.getElementById('tradingview-form-element').addEventListener('submit', handleTradingViewFormSubmit);
+            } else {
+                formElement.style.display = 'block';
+            }
+            
+            // Focus on the API key field
+            setTimeout(() => {
+                const apiKeyField = document.getElementById('tradingview-api-key');
+                if (apiKeyField) {
+                    apiKeyField.focus();
+                }
+            }, 100);
+        }
+
+        function hideTradingViewForm() {
+            const formElement = document.getElementById('tradingview-form');
+            if (formElement) {
+                formElement.style.display = 'none';
+                const form = document.getElementById('tradingview-form-element');
+                if (form) {
+                    form.reset();
+                }
+            }
+            // Show the no configuration message again
+            showNoTradingViewMessage();
+        }
+
+        function editTradingViewConfig(userId) {
+            showTradingViewForm();
+        }
+
+        async function handleTradingViewFormSubmit(e) {
+            e.preventDefault();
+            
+            const apiKey = document.getElementById('tradingview-api-key').value;
+            const username = document.getElementById('tradingview-username').value;
+            const webhookUrl = document.getElementById('tradingview-webhook-url').value;
+            
+            if (!apiKey) {
+                alert('Please enter TradingView API key');
+                return;
+            }
+            
+            try {
+                const deviceFingerprint = generateDeviceFingerprint();
+                const userAgent = navigator.userAgent;
+                
+                const response = await fetch('/api/tradingview_configs', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        user_id: deviceFingerprint,
+                        username: username,
+                        api_key: apiKey,
+                        webhook_url: webhookUrl,
+                        device_fingerprint: deviceFingerprint,
+                        user_agent: userAgent
+                    })
+                });
+                
+                if (response.ok) {
+                    alert('TradingView configuration saved successfully!');
+                    hideTradingViewForm();
+                    loadTradingViewConfigs();
+                } else {
+                    const error = await response.json();
+                    alert('Error saving TradingView configuration: ' + error.error);
+                }
+            } catch (error) {
+                console.error('Error saving TradingView configuration:', error);
+                alert('Error saving TradingView configuration');
+            }
+        }
+
+        function refreshTradingViewConfigs() {
+            loadTradingViewConfigs();
+        }
+
+        // OANDA Configuration Functions
+        async function loadOANDAConfigs() {
+            try {
+                const deviceFingerprint = generateDeviceFingerprint();
+                const response = await fetch(`/api/oanda_configs/by_device?device_fingerprint=${deviceFingerprint}`);
+                
+                if (response.ok) {
+                    const config = await response.json();
+                    showExistingOANDAInfo(config);
+                } else {
+                    showNoOANDAMessage();
+                }
+            } catch (error) {
+                console.error('Error loading OANDA configs:', error);
+                showNoOANDAMessage();
+            }
+        }
+
+        function showExistingOANDAInfo(configInfo) {
+            const container = document.getElementById('oanda-config-container');
+            const lastUsed = configInfo.last_used ? 
+                new Date(configInfo.last_used).toLocaleString() : 
+                'Never';
+            
+            container.innerHTML = `
+                <div class="alert alert-success">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="alert-heading mb-1">
+                                <i class="fas fa-check-circle"></i> OANDA Configuration Found
+                            </h6>
+                            <p class="mb-0">
+                                <strong>User:</strong> ${configInfo.username || 'Unknown'} (${configInfo.user_id})<br>
+                                <strong>Account:</strong> ${configInfo.account_name || 'Unknown'} (${configInfo.account_id})<br>
+                                <strong>Environment:</strong> ${configInfo.environment}<br>
+                                <strong>API Key:</strong> ${configInfo.api_key}<br>
+                                <strong>Last Used:</strong> ${lastUsed}
+                            </p>
+                        </div>
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-sm btn-outline-primary" onclick="editOANDAConfig('${configInfo.user_id}')">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deactivateOANDAConfig('${configInfo.user_id}')">
+                                <i class="fas fa-power-off"></i> Deactivate
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function showNoOANDAMessage() {
+            document.getElementById('oanda-config-container').innerHTML = `
+                <div id="no-oanda-message">
+                    <p class="text-muted">No OANDA configuration found for this device.</p>
+                    <button class="btn btn-primary" onclick="showOANDAForm()">
+                        <i class="fas fa-plus"></i> Add OANDA Configuration
+                    </button>
+                </div>
+            `;
+        }
+
+        function showOANDAForm() {
+            // Check if form exists, if not recreate it
+            let formElement = document.getElementById('oanda-form');
+            if (!formElement) {
+                // Recreate the form in the container
+                const container = document.getElementById('oanda-config-container');
+                container.innerHTML = `
+                    <div id="oanda-form" style="display: block;">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6><i class="fas fa-university"></i> OANDA Account Setup</h6>
+                                <form id="oanda-form-element">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">OANDA Account ID</label>
+                                                <input type="text" class="form-control" id="oanda-account-id" 
+                                                       placeholder="Enter OANDA account ID" required>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">Account Name (Optional)</label>
+                                                <input type="text" class="form-control" id="oanda-account-name" 
+                                                       placeholder="Enter account name for display">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">OANDA API Key</label>
+                                                <input type="password" class="form-control" id="oanda-api-key" 
+                                                       placeholder="Enter your OANDA API key" required>
+                                                <div class="form-text">
+                                                    <small>Get your API key from OANDA account settings</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">Environment</label>
+                                                <select class="form-control" id="oanda-environment">
+                                                    <option value="practice">Practice (Demo)</option>
+                                                    <option value="live">Live (Real Money)</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">Username (Optional)</label>
+                                                <input type="text" class="form-control" id="oanda-username" 
+                                                       placeholder="Your username">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="text-end">
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-save"></i> Save Configuration
+                                        </button>
+                                        <button type="button" class="btn btn-secondary" onclick="hideOANDAForm()">Cancel</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // Re-attach event listener
+                document.getElementById('oanda-form-element').addEventListener('submit', handleOANDAFormSubmit);
+            } else {
+                formElement.style.display = 'block';
+            }
+            
+            // Focus on the account ID field
+            setTimeout(() => {
+                const accountIdField = document.getElementById('oanda-account-id');
+                if (accountIdField) {
+                    accountIdField.focus();
+                }
+            }, 100);
+        }
+
+        function hideOANDAForm() {
+            const formElement = document.getElementById('oanda-form');
+            if (formElement) {
+                formElement.style.display = 'none';
+                const form = document.getElementById('oanda-form-element');
+                if (form) {
+                    form.reset();
+                }
+            }
+            // Show the no configuration message again
+            showNoOANDAMessage();
+        }
+
+        function editOANDAConfig(userId) {
+            showOANDAForm();
+        }
+
+        async function handleOANDAFormSubmit(e) {
+            e.preventDefault();
+            
+            const accountId = document.getElementById('oanda-account-id').value;
+            const accountName = document.getElementById('oanda-account-name').value;
+            const apiKey = document.getElementById('oanda-api-key').value;
+            const environment = document.getElementById('oanda-environment').value;
+            const username = document.getElementById('oanda-username').value;
+            
+            if (!accountId || !apiKey) {
+                alert('Please enter OANDA Account ID and API key');
+                return;
+            }
+            
+            try {
+                const deviceFingerprint = generateDeviceFingerprint();
+                const userAgent = navigator.userAgent;
+                
+                const response = await fetch('/api/oanda_configs', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        user_id: deviceFingerprint,
+                        username: username,
+                        account_id: accountId,
+                        account_name: accountName,
+                        api_key: apiKey,
+                        environment: environment,
+                        device_fingerprint: deviceFingerprint,
+                        user_agent: userAgent
+                    })
+                });
+                
+                if (response.ok) {
+                    alert('OANDA configuration saved successfully!');
+                    hideOANDAForm();
+                    loadOANDAConfigs();
+                    loadOANDAAccounts();
+                } else {
+                    const error = await response.json();
+                    alert('Error saving OANDA configuration: ' + error.error);
+                }
+            } catch (error) {
+                console.error('Error saving OANDA configuration:', error);
+                alert('Error saving OANDA configuration');
+            }
+        }
+
+        function refreshOANDAConfigs() {
+            loadOANDAConfigs();
+        }
+
+        // OANDA Accounts Dropdown
+        async function loadOANDAAccounts() {
+            try {
+                const response = await fetch('/api/oanda_accounts');
+                const accounts = await response.json();
+                
+                const dropdown = document.getElementById('active-oanda-account');
+                dropdown.innerHTML = '<option value="">Select an account...</option>';
+                
+                accounts.forEach(account => {
+                    const option = document.createElement('option');
+                    option.value = account.account_id;
+                    option.textContent = `${account.account_name || 'Unknown'} (${account.account_id}) - ${account.environment}`;
+                    dropdown.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading OANDA accounts:', error);
+            }
+        }
+
+        // Update Active Configurations
+        async function updateActiveConfigurations() {
+            const selectedAccount = document.getElementById('active-oanda-account').value;
+            const selectedSource = document.getElementById('active-signal-source').value;
+            
+            if (!selectedAccount) {
+                alert('Please select an OANDA account');
+                return;
+            }
+            
+            try {
+                alert(`Active configuration updated:\nAccount: ${selectedAccount}\nSignal Source: ${selectedSource}`);
+            } catch (error) {
+                console.error('Error updating active configuration:', error);
+                alert('Error updating active configuration');
+            }
+        }
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+            }
+        });
+    </script>
+</body>
+</html>
