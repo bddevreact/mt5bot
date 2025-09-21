@@ -124,21 +124,26 @@ ENCRYPTION_KEY=your-32-character-encryption-key-here
    - **Reason**: Python 3.13 এর সাথে pandas 2.1.1 compatible নয়
    - **Status**: ✅ Fixed - pandas not used in the application
 
-2. **Deployment Failed**
+2. **Six Module Missing Error**
+   - **Solution**: Added `six==1.16.0` to requirements.txt
+   - **Reason**: oandapyV20 requires six module
+   - **Status**: ✅ Fixed - six dependency added
+
+3. **Deployment Failed**
    - Logs check করুন
    - Environment variables verify করুন
    - Requirements.txt check করুন
 
-3. **Database Connection Error**
+4. **Database Connection Error**
    - DATABASE_URL check করুন
    - Database service running আছে কিনা check করুন
    - PostgreSQL URL format: `postgresql://user:pass@host:port/db`
 
-4. **API Keys Not Working**
+5. **API Keys Not Working**
    - Environment variables এ correct keys আছে কিনা check করুন
    - API keys valid আছে কিনা verify করুন
 
-5. **Trading Not Working**
+6. **Trading Not Working**
    - OANDA credentials check করুন
    - AUTO_TRADING_ENABLED=true আছে কিনা check করুন
 

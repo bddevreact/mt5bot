@@ -3,6 +3,7 @@ flask-sqlalchemy==3.0.5
 flask-cors==4.0.0
 discord.py==2.3.2
 oandapyV20==0.6.3
+six==1.16.0
 python-dotenv==1.0.0
 requests==2.31.0
 websocket-client==1.6.3
