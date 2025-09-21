@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import threading
 import time
 import logging
+import os
 
 from config import Config
 from models import db, Signal, Trade, Position, Account, Strategy, TradingSettings, UserToken, TradingViewConfig, OANDAConfig
@@ -608,4 +609,6 @@ if __name__ == '__main__':
         discord_thread.start()
         logger.info("Discord bot started in background thread")
     
-    app.run(debug=Config.DEBUG, host='0.0.0.0', port=5000)
+    # Get port from environment variable (Railway sets this)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=Config.DEBUG, host='0.0.0.0', port=port)

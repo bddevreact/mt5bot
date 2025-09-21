@@ -134,3 +134,7 @@ Thumbs.db
 # Trading Bot specific
 backups/
 *.backup
+
+# Railway deployment
+railway.json
+railway.env
